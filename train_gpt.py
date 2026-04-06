@@ -202,8 +202,13 @@ class _FusedMLPUpProj(torch.autograd.Function):
         # d(LeakyReLU(z)^2)/dz = 2*LeakyReLU(z) * d(LeakyReLU)/dz
         leaky_grad = torch.where(pre_act > 0, torch.ones_like(pre_act), torch.full_like(pre_act, 0.5))
         grad_pre_act = grad_output * 2.0 * activated * leaky_grad
+        # grad_x: d/dx of (x @ w.T) = grad_pre_act @ w
         grad_x = F.linear(grad_pre_act, weight.T) if x.requires_grad else None
-        return grad_x, None
+        # grad_weight: d/dw of (x @ w.T) = grad_pre_act.T @ x  (sum over batch)
+        gp_2d = grad_pre_act.reshape(-1, grad_pre_act.shape[-1])
+        x_2d = x.reshape(-1, x.shape[-1])
+        grad_weight = gp_2d.T @ x_2d
+        return grad_x, grad_weight
 
 class _FusedMLPDownProj(torch.autograd.Function):
     @staticmethod
@@ -215,12 +220,18 @@ class _FusedMLPDownProj(torch.autograd.Function):
         hidden, weight, mlp_scale = ctx.saved_tensors
         # out = residual + mlp_scale * (hidden @ weight.T)
         grad_residual = grad_output
+        # Scaled grad through the matmul: mlp_scale * grad_output
         scaled_grad = mlp_scale * grad_output
+        # grad_hidden: d/d(hidden) of (hidden @ w.T) = scaled_grad @ w
         grad_hidden = F.linear(scaled_grad, weight.T) if hidden.requires_grad else None
-        # grad_mlp_scale: d/d(scale) of (scale * linear_out) = linear_out * grad_output, summed over batch
+        # grad_weight: d/dw of (hidden @ w.T) = scaled_grad.T @ hidden  (sum over batch)
+        sg_2d = scaled_grad.reshape(-1, scaled_grad.shape[-1])
+        h_2d = hidden.reshape(-1, hidden.shape[-1])
+        grad_weight = sg_2d.T @ h_2d
+        # grad_mlp_scale: d/d(scale) of (scale * linear_out) = linear_out * grad_output, summed
         gemm_out = F.linear(hidden, weight)
         grad_mlp_scale = (grad_output * gemm_out).reshape(-1, grad_output.shape[-1]).sum(dim=0)
-        return grad_hidden, None, grad_mlp_scale, grad_residual
+        return grad_hidden, grad_weight, grad_mlp_scale, grad_residual
 
 def fused_mlp_up_proj(x: Tensor, weight: Tensor) -> Tensor:
     """out = LeakyReLU(x @ weight.T, 0.5)^2 -- fused forward, PyTorch backward."""
