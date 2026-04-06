@@ -244,7 +244,97 @@ def fused_mlp_down_proj(hidden: Tensor, weight: Tensor, mlp_scale: Tensor, resid
     if not _USE_TRITON_MLP:
         return residual + mlp_scale * F.linear(hidden, weight)
     return _FusedMLPDownProj.apply(hidden, weight, mlp_scale, residual)
-# ─── End Fused MLP Kernels ───────────────────────────────────────────────���─
+
+# ─── Fused Attention QK Norm + RoPE + Gain ──────────────────────────────────
+_USE_TRITON_ATTN = _USE_TRITON_MLP  # same gate: True if Triton available
+if _USE_TRITON_MLP:
+    @triton.jit
+    def _fused_qk_norm_rope_kernel(
+        x_ptr, cos_ptr, sin_ptr, gain_ptr,
+        B, T, H,
+        stride_xb, stride_xt, stride_xh, stride_xd,
+        stride_cos_t,
+        D: tl.constexpr, ROPE_HALF: tl.constexpr, HAS_GAIN: tl.constexpr, EPS: tl.constexpr,
+    ):
+        pid = tl.program_id(0)
+        b = pid // (T * H)
+        rem = pid % (T * H)
+        t = rem // H
+        h = rem % H
+        base = b * stride_xb + t * stride_xt + h * stride_xh
+        offs_d = tl.arange(0, D)
+        x = tl.load(x_ptr + base + offs_d * stride_xd).to(tl.float32)
+        var = tl.sum(x * x, axis=0) / D
+        x = x * tl.rsqrt(var + EPS)
+        tl.store(x_ptr + base + offs_d * stride_xd, x.to(tl.bfloat16))
+        cos_base = t * stride_cos_t
+        rope_offs = tl.arange(0, ROPE_HALF)
+        cos_vals = tl.load(cos_ptr + cos_base + rope_offs).to(tl.float32)
+        sin_vals = tl.load(sin_ptr + cos_base + rope_offs).to(tl.float32)
+        x1 = tl.load(x_ptr + base + rope_offs * stride_xd).to(tl.float32)
+        x2 = tl.load(x_ptr + base + (rope_offs + ROPE_HALF) * stride_xd).to(tl.float32)
+        new_x1 = x1 * cos_vals + x2 * sin_vals
+        new_x2 = -x1 * sin_vals + x2 * cos_vals
+        tl.store(x_ptr + base + rope_offs * stride_xd, new_x1.to(tl.bfloat16))
+        tl.store(x_ptr + base + (rope_offs + ROPE_HALF) * stride_xd, new_x2.to(tl.bfloat16))
+        if HAS_GAIN:
+            gain_val = tl.load(gain_ptr + h).to(tl.float32)
+            x_final = tl.load(x_ptr + base + offs_d * stride_xd).to(tl.float32)
+            x_final = x_final * gain_val
+            tl.store(x_ptr + base + offs_d * stride_xd, x_final.to(tl.bfloat16))
+
+def _triton_qk_norm_rope_fwd(x, cos, sin, gain, rope_dims, has_gain):
+    x = x.contiguous().clone().to(torch.bfloat16)
+    B, T, H, D = x.shape
+    ROPE_HALF = rope_dims // 2
+    gain_ptr = gain.to(torch.bfloat16) if has_gain else x
+    _fused_qk_norm_rope_kernel[(B * T * H,)](
+        x, cos.to(torch.bfloat16), sin.to(torch.bfloat16), gain_ptr,
+        B, T, H,
+        x.stride(0), x.stride(1), x.stride(2), x.stride(3),
+        cos.stride(1),
+        D=D, ROPE_HALF=ROPE_HALF, HAS_GAIN=has_gain, EPS=1e-6,
+    )
+    return x.to(cos.dtype)
+
+def _pytorch_qk_norm_rope(x, cos, sin, gain, rope_dims, has_gain):
+    x = F.rms_norm(x, (x.size(-1),))
+    half = rope_dims // 2
+    x_rope, x_pass = x[..., :rope_dims], x[..., rope_dims:]
+    x1, x2 = x_rope[..., :half], x_rope[..., half:]
+    x_rope = torch.cat((x1 * cos + x2 * sin, x1 * (-sin) + x2 * cos), dim=-1)
+    x = torch.cat((x_rope, x_pass), dim=-1)
+    if has_gain:
+        x = x * gain[None, None, :, None]
+    return x
+
+class _FusedQKNormRoPE(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, cos, sin, gain, rope_dims, has_gain):
+        ctx.save_for_backward(x, cos, sin, gain)
+        ctx.rope_dims = rope_dims
+        ctx.has_gain = has_gain
+        return _triton_qk_norm_rope_fwd(x, cos, sin, gain, rope_dims, has_gain)
+    @staticmethod
+    def backward(ctx, grad_output):
+        x, cos, sin, gain = ctx.saved_tensors
+        with torch.enable_grad():
+            x_det = x.detach().requires_grad_(True)
+            out = _pytorch_qk_norm_rope(x_det, cos, sin, gain, ctx.rope_dims, ctx.has_gain)
+            out.backward(grad_output)
+        return x_det.grad, None, None, None, None, None
+
+def fused_q_norm_rope_gain(q, cos, sin, gain, rope_dims=16):
+    if not _USE_TRITON_ATTN:
+        return _pytorch_qk_norm_rope(q, cos, sin, gain, rope_dims, has_gain=True)
+    return _FusedQKNormRoPE.apply(q, cos, sin, gain, rope_dims, True)
+
+def fused_k_norm_rope(k, cos, sin, rope_dims=16):
+    if not _USE_TRITON_ATTN:
+        return _pytorch_qk_norm_rope(k, cos, sin, k, rope_dims, has_gain=False)
+    return _FusedQKNormRoPE.apply(k, cos, sin, k, rope_dims, False)
+# ─── End Fused Attention Kernels ────────────────────────────────────────────
+
 class Hyperparameters:
     data_path = os.environ.get("DATA_PATH", "./data/datasets/fineweb10B_sp1024")
     train_files = os.path.join(data_path, "fineweb_train_*.bin")
@@ -872,12 +962,9 @@ class CausalSelfAttention(nn.Module):
         if self.value_residual and v0 is not None:
             alpha = torch.sigmoid(self.vrl_alpha.to(dtype=v.dtype))
             v = v + alpha * v0  # sigmoid-gated residual (PR #569 style)
-        q = F.rms_norm(q, (q.size(-1),))
-        k = F.rms_norm(k, (k.size(-1),))
         cos, sin = self.rotary(seqlen, x.device, q.dtype)
-        q = apply_rotary_emb(q, cos, sin, self.rope_dims)
-        k = apply_rotary_emb(k, cos, sin, self.rope_dims)
-        q = q * self.q_gain.to(dtype=q.dtype)[None, None, :, None]
+        q = fused_q_norm_rope_gain(q, cos, sin, self.q_gain.to(dtype=q.dtype), self.rope_dims)
+        k = fused_k_norm_rope(k, cos, sin, self.rope_dims)
         y = flash_attn_3_func(q, k, v, causal=True)
         if self.use_xsa:
             y = self._xsa_efficient(y, v)
