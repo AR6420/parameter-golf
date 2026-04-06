@@ -1,0 +1,41 @@
+{
+  "author": "AR6420",
+  "github_id": "AR6420",
+  "name": "GEMM Boundary Fusion: MLP + Attention Kernel Fusion",
+  "blurb": "Fuses element-wise ops (RMSNorm, LeakyReLU^2, RoPE, residual-add) INTO Triton GEMM boundaries as prologues/epilogues. 3 custom kernels: fused_mlp_up_proj (GEMM+LeakyReLU^2, 1.39x), fused_mlp_down_proj (GEMM+scale+residual, 1.13x), fused_qk_norm_rope (RMSNorm+RoPE+gain, 2.37x). Projected 2.64ms/step savings (3.0%) over SOTA baseline. Evolved from PR#1316's megakernel insight: fuse element-wise ops, but partner with cuBLAS-speed GEMMs instead of replacing them.",
+  "date": "2026-04-05",
+  "track": "10min_16mb",
+  "val_loss": "PLACEHOLDER_PENDING_H100_RUNS",
+  "val_bpb": "PLACEHOLDER_PENDING_H100_RUNS",
+  "seeds": [1337, 42, 2025],
+  "seed_results": {
+    "1337": {
+      "val_loss": "PLACEHOLDER",
+      "val_bpb": "PLACEHOLDER",
+      "artifact_bytes": "PLACEHOLDER",
+      "steps": "PLACEHOLDER",
+      "step_avg_ms": "PLACEHOLDER"
+    },
+    "42": {
+      "val_loss": "PLACEHOLDER",
+      "val_bpb": "PLACEHOLDER",
+      "artifact_bytes": "PLACEHOLDER",
+      "steps": "PLACEHOLDER",
+      "step_avg_ms": "PLACEHOLDER"
+    },
+    "2025": {
+      "val_loss": "PLACEHOLDER",
+      "val_bpb": "PLACEHOLDER",
+      "artifact_bytes": "PLACEHOLDER",
+      "steps": "PLACEHOLDER",
+      "step_avg_ms": "PLACEHOLDER"
+    }
+  },
+  "comparison_baseline_pr": 1019,
+  "implementation_lineage_pr": 1316,
+  "hardware": "8xH100 80GB SXM",
+  "pytorch_version": "2.9.1+cu128",
+  "cuda_version": "12.8",
+  "flash_attn_version": "FA3 Hopper kernels",
+  "technique_summary": "Triton GEMM + fused epilogue/prologue for MLP and attention element-wise ops"
+}
