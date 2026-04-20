@@ -950,11 +950,16 @@ class CausalSelfAttention(nn.Module):
         vn = F.normalize(v, dim=-1).unsqueeze(-2)    # [B, T, Hkv, 1, D] -- broadcast ready
         proj = (y_g * vn).sum(dim=-1, keepdim=True) * vn
         return (y_g - proj).reshape(B, T, H, D)
-    def forward(self, x: Tensor, q_w: Tensor, k_w: Tensor, v_w: Tensor, out_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
+    def forward(self, x: Tensor, qkv_w: Tensor, out_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
         bsz, seqlen, dim = x.shape
-        q = F.linear(x, q_w.to(x.dtype)).reshape(bsz, seqlen, self.num_heads, self.head_dim)
-        k = F.linear(x, k_w.to(x.dtype)).reshape(bsz, seqlen, self.num_kv_heads, self.head_dim)
-        v = F.linear(x, v_w.to(x.dtype))
+        q_dim = self.num_heads * self.head_dim
+        kv_dim = self.num_kv_heads * self.head_dim
+        # ForgeFuse Phase 1: one GEMM for Q|K|V, then split along last dim.
+        qkv = F.linear(x, qkv_w.to(x.dtype))
+        q, k, v = qkv.split([q_dim, kv_dim, kv_dim], dim=-1)
+        q = q.reshape(bsz, seqlen, self.num_heads, self.head_dim)
+        k = k.reshape(bsz, seqlen, self.num_kv_heads, self.head_dim)
+        # v stays [B, T, kv_dim] here — v_embed and value residual operate on that shape.
         if v_embed is not None:
             v = v + v_embed
         v = v.reshape(bsz, seqlen, self.num_kv_heads, self.head_dim)
@@ -1081,10 +1086,10 @@ class Block(nn.Module):
             nn.init.constant_(self.dtg_gate.bias, 2.0)
         else:
             self.dtg_gate = None
-    def forward(self, x: Tensor, x0: Tensor, q_w: Tensor, k_w: Tensor, v_w: Tensor, out_w: Tensor, up_w: Tensor, down_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
+    def forward(self, x: Tensor, x0: Tensor, qkv_w: Tensor, out_w: Tensor, up_w: Tensor, down_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
         mix = self.resid_mix.to(dtype=x.dtype)
         x_in = mix[0][None, None, :] * x + mix[1][None, None, :] * x0
-        attn_out, raw_v = self.attn(self.attn_norm(x_in) * self.ln_scale_factor, q_w, k_w, v_w, out_w, v_embed=v_embed, v0=v0)
+        attn_out, raw_v = self.attn(self.attn_norm(x_in) * self.ln_scale_factor, qkv_w, out_w, v_embed=v_embed, v0=v0)
         x_out = x_in + self.attn_scale.to(dtype=x_in.dtype)[None, None, :] * attn_out
         x_out = self.mlp(self.mlp_norm(x_out) * self.ln_scale_factor, up_w, down_w,
                          mlp_scale=self.mlp_scale.to(dtype=x_out.dtype), residual=x_out)
@@ -1143,8 +1148,11 @@ class GPT(nn.Module):
         kv_dim = num_kv_heads * head_dim
         mlp_dim = int(mlp_mult * model_dim)
         self.num_layers = num_layers
-        self.qo_bank = nn.Parameter(torch.empty(2 * num_layers, model_dim, model_dim))
-        self.kv_bank = nn.Parameter(torch.empty(2 * num_layers, kv_dim, model_dim))
+        # ForgeFuse Phase 1: Q|K|V fused into one [qkv_dim, model_dim] weight per layer;
+        # Out projection lives alone so each attn block runs 1 GEMM (not 3) for QKV.
+        qkv_dim = model_dim + 2 * kv_dim
+        self.qkv_bank = nn.Parameter(torch.empty(num_layers, qkv_dim, model_dim))
+        self.out_bank = nn.Parameter(torch.empty(num_layers, model_dim, model_dim))
         self.mlp_up_bank = nn.Parameter(torch.empty(num_layers, mlp_dim, model_dim))
         self.mlp_down_bank = nn.Parameter(torch.empty(num_layers, model_dim, mlp_dim))
         self.blocks = nn.ModuleList(
@@ -1199,17 +1207,26 @@ class GPT(nn.Module):
             nn.init.normal_(self.tok_emb.weight, mean=0.0, std=self.tied_embed_init_std)
         n = self.num_layers
         proj_scale = 1.0 / math.sqrt(2 * n)
-        # Init banks: orthogonal, with proj layers scaled down and out/down zero-init
+        # Init banks: orthogonal, with proj layers scaled down and out/down zero-init.
+        # ForgeFuse: build qkv_bank/out_bank via a temporary qo/kv init so the RNG stream
+        # is byte-identical to the old layout — guarantees bit-exact equivalence at step 0.
+        model_dim = self.qkv_bank.shape[2]
+        kv_dim = (self.qkv_bank.shape[1] - model_dim) // 2
+        tmp_qo = torch.empty(2 * n, model_dim, model_dim)
+        tmp_kv = torch.empty(2 * n, kv_dim, model_dim)
         for i in range(n):
-            nn.init.orthogonal_(self.qo_bank.data[i], gain=1.0)        # Q
-            nn.init.zeros_(self.qo_bank.data[n + i])                    # Out (zero init)
-            nn.init.orthogonal_(self.kv_bank.data[i], gain=1.0)        # K
-            nn.init.orthogonal_(self.kv_bank.data[n + i], gain=1.0)    # V
+            nn.init.orthogonal_(tmp_qo[i], gain=1.0)                   # Q
+            nn.init.zeros_(tmp_qo[n + i])                              # Out (zero init)
+            nn.init.orthogonal_(tmp_kv[i], gain=1.0)                   # K
+            nn.init.orthogonal_(tmp_kv[n + i], gain=1.0)               # V
             nn.init.orthogonal_(self.mlp_up_bank.data[i], gain=1.0)    # MLP up
             nn.init.zeros_(self.mlp_down_bank.data[i])                  # MLP down (zero init)
             # Scale proj layers (out_proj and mlp_down are "proj" layers)
-            self.qo_bank.data[n + i].mul_(proj_scale)
+            tmp_qo[n + i].mul_(proj_scale)
             self.mlp_down_bank.data[i].mul_(proj_scale)
+            # Fold temp slices into the fused layout
+            self.qkv_bank.data[i] = torch.cat([tmp_qo[i], tmp_kv[i], tmp_kv[n + i]], dim=0)
+            self.out_bank.data[i] = tmp_qo[n + i]
         # Init remaining nn.Linear modules (bigram proj, mtp heads, lm_head)
         for name, module in self.named_modules():
             if isinstance(module, nn.Linear):
@@ -1240,8 +1257,8 @@ class GPT(nn.Module):
         for i in range(self.num_encoder_layers):
             ve = self._get_ve(i, input_ids, ve_cache)
             x, raw_v = self.blocks[i](x, x0,
-                self.qo_bank[i], self.kv_bank[i], self.kv_bank[n + i],
-                self.qo_bank[n + i], self.mlp_up_bank[i], self.mlp_down_bank[i],
+                self.qkv_bank[i], self.out_bank[i],
+                self.mlp_up_bank[i], self.mlp_down_bank[i],
                 v_embed=ve, v0=v0)
             if v0 is None and raw_v is not None:
                 v0 = raw_v
@@ -1252,8 +1269,8 @@ class GPT(nn.Module):
                 x = x + self.skip_weights[i].to(dtype=x.dtype)[None, None, :] * skips.pop()
             ve = self._get_ve(bi, input_ids, ve_cache)
             x, _ = self.blocks[bi](x, x0,
-                self.qo_bank[bi], self.kv_bank[bi], self.kv_bank[n + bi],
-                self.qo_bank[n + bi], self.mlp_up_bank[bi], self.mlp_down_bank[bi],
+                self.qkv_bank[bi], self.out_bank[bi],
+                self.mlp_up_bank[bi], self.mlp_down_bank[bi],
                 v_embed=ve, v0=v0)
         x = self.final_norm(x)
         x_flat = x.reshape(-1, x.size(-1))
@@ -1298,8 +1315,8 @@ class GPT(nn.Module):
         for i in range(self.num_encoder_layers):
             ve = self._get_ve(i, input_ids, ve_cache)
             x, raw_v = self.blocks[i](x, x0,
-                self.qo_bank[i], self.kv_bank[i], self.kv_bank[n + i],
-                self.qo_bank[n + i], self.mlp_up_bank[i], self.mlp_down_bank[i],
+                self.qkv_bank[i], self.out_bank[i],
+                self.mlp_up_bank[i], self.mlp_down_bank[i],
                 v_embed=ve, v0=v0)
             if v0 is None and raw_v is not None:
                 v0 = raw_v
@@ -1310,8 +1327,8 @@ class GPT(nn.Module):
                 x = x + self.skip_weights[i].to(dtype=x.dtype)[None, None, :] * skips.pop()
             ve = self._get_ve(bi, input_ids, ve_cache)
             x, _ = self.blocks[bi](x, x0,
-                self.qo_bank[bi], self.kv_bank[bi], self.kv_bank[n + bi],
-                self.qo_bank[n + bi], self.mlp_up_bank[bi], self.mlp_down_bank[bi],
+                self.qkv_bank[bi], self.out_bank[bi],
+                self.mlp_up_bank[bi], self.mlp_down_bank[bi],
                 v_embed=ve, v0=v0)
         x = self.final_norm(x)
         if self.tie_embeddings:
@@ -1564,14 +1581,18 @@ def _unbank_state_dict(sd: dict[str, Tensor], num_layers: int) -> dict[str, Tens
     out: dict[str, Tensor] = {}
     n = num_layers
     for name, tensor in sd.items():
-        if name == "qo_bank":
+        if name == "qkv_bank":
+            # tensor: [n, q_dim + 2*kv_dim, model_dim] — split rows into Q, K, V
+            model_dim = tensor.shape[2]
+            kv_dim = (tensor.shape[1] - model_dim) // 2
             for i in range(n):
-                out[f"blocks.{i}.attn.c_q.weight"] = tensor[i]
-                out[f"blocks.{i}.attn.proj.weight"] = tensor[n + i]
-        elif name == "kv_bank":
+                q_w, k_w, v_w = tensor[i].split([model_dim, kv_dim, kv_dim], dim=0)
+                out[f"blocks.{i}.attn.c_q.weight"] = q_w
+                out[f"blocks.{i}.attn.c_k.weight"] = k_w
+                out[f"blocks.{i}.attn.c_v.weight"] = v_w
+        elif name == "out_bank":
             for i in range(n):
-                out[f"blocks.{i}.attn.c_k.weight"] = tensor[i]
-                out[f"blocks.{i}.attn.c_v.weight"] = tensor[n + i]
+                out[f"blocks.{i}.attn.proj.weight"] = tensor[i]
         elif name == "mlp_up_bank":
             for i in range(n):
                 out[f"blocks.{i}.mlp.fc.weight"] = tensor[i]
@@ -1587,28 +1608,22 @@ def _rebank_state_dict(sd: dict[str, Tensor], num_layers: int, template_sd: dict
     out: dict[str, Tensor] = {}
     n = num_layers
     # Reconstruct banks from individual weight keys
-    qo_slices = [None] * (2 * n)
-    kv_slices = [None] * (2 * n)
-    up_slices = [None] * n
-    down_slices = [None] * n
-    consumed = set()
+    qkv_slices: list[Tensor | None] = [None] * n
+    out_slices: list[Tensor | None] = [None] * n
+    up_slices: list[Tensor | None] = [None] * n
+    down_slices: list[Tensor | None] = [None] * n
+    consumed: set[str] = set()
     for i in range(n):
         qk = f"blocks.{i}.attn.c_q.weight"
-        if qk in sd:
-            qo_slices[i] = sd[qk]
-            consumed.add(qk)
+        kk = f"blocks.{i}.attn.c_k.weight"
+        vk = f"blocks.{i}.attn.c_v.weight"
+        if qk in sd and kk in sd and vk in sd:
+            qkv_slices[i] = torch.cat([sd[qk], sd[kk], sd[vk]], dim=0)
+            consumed.update([qk, kk, vk])
         ok = f"blocks.{i}.attn.proj.weight"
         if ok in sd:
-            qo_slices[n + i] = sd[ok]
+            out_slices[i] = sd[ok]
             consumed.add(ok)
-        kk = f"blocks.{i}.attn.c_k.weight"
-        if kk in sd:
-            kv_slices[i] = sd[kk]
-            consumed.add(kk)
-        vk = f"blocks.{i}.attn.c_v.weight"
-        if vk in sd:
-            kv_slices[n + i] = sd[vk]
-            consumed.add(vk)
         fk = f"blocks.{i}.mlp.fc.weight"
         if fk in sd:
             up_slices[i] = sd[fk]
@@ -1617,8 +1632,8 @@ def _rebank_state_dict(sd: dict[str, Tensor], num_layers: int, template_sd: dict
         if dk in sd:
             down_slices[i] = sd[dk]
             consumed.add(dk)
-    out["qo_bank"] = torch.stack(qo_slices).to(dtype=template_sd["qo_bank"].dtype)
-    out["kv_bank"] = torch.stack(kv_slices).to(dtype=template_sd["kv_bank"].dtype)
+    out["qkv_bank"] = torch.stack(qkv_slices).to(dtype=template_sd["qkv_bank"].dtype)
+    out["out_bank"] = torch.stack(out_slices).to(dtype=template_sd["out_bank"].dtype)
     out["mlp_up_bank"] = torch.stack(up_slices).to(dtype=template_sd["mlp_up_bank"].dtype)
     out["mlp_down_bank"] = torch.stack(down_slices).to(dtype=template_sd["mlp_down_bank"].dtype)
     for name, tensor in sd.items():
@@ -1964,8 +1979,8 @@ def main() -> None:
         value_residual=args.value_residual,
     ).to(device).bfloat16()
     # Banks stay FP32 (like CastedLinear weights), cast to BF16 in forward
-    base_model.qo_bank.data = base_model.qo_bank.data.float()
-    base_model.kv_bank.data = base_model.kv_bank.data.float()
+    base_model.qkv_bank.data = base_model.qkv_bank.data.float()
+    base_model.out_bank.data = base_model.out_bank.data.float()
     base_model.mlp_up_bank.data = base_model.mlp_up_bank.data.float()
     base_model.mlp_down_bank.data = base_model.mlp_down_bank.data.float()
     for module in base_model.modules():
@@ -1987,7 +2002,7 @@ def main() -> None:
     # - scalars/control tensors -> Adam
     # - bigram proj, mtp heads, VE proj -> Adam (small matrix params not worth banking)
     matrix_params = [
-        base_model.qo_bank, base_model.kv_bank,
+        base_model.qkv_bank, base_model.out_bank,
         base_model.mlp_up_bank, base_model.mlp_down_bank,
     ]
     block_named_params = list(base_model.blocks.named_parameters())
@@ -2392,8 +2407,8 @@ def main() -> None:
         ve_enabled=args.ve_enabled, ve_dim=args.ve_dim, ve_layers=args.ve_layers,
         gated_attention=args.gated_attention, value_residual=args.value_residual,
     ).to(device).bfloat16()
-    eval_model.qo_bank.data = eval_model.qo_bank.data.float()
-    eval_model.kv_bank.data = eval_model.kv_bank.data.float()
+    eval_model.qkv_bank.data = eval_model.qkv_bank.data.float()
+    eval_model.out_bank.data = eval_model.out_bank.data.float()
     eval_model.mlp_up_bank.data = eval_model.mlp_up_bank.data.float()
     eval_model.mlp_down_bank.data = eval_model.mlp_down_bank.data.float()
     for m in eval_model.modules():
