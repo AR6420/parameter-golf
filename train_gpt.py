@@ -45,11 +45,22 @@ except ImportError:
 
 # ─── Fused MLP Kernels (GEMM Boundary Fusion) ──────────────────────────────
 _USE_TRITON_MLP = True  # Set False to fall back to F.linear + manual activation
+_USE_W8A8_QAT   = True  # ForgeFuse Phase 2B: INT8 weight + activation quant on 4 GEMMs
 try:
     import triton
     import triton.language as tl
 except ImportError:
     _USE_TRITON_MLP = False
+    _USE_W8A8_QAT = False
+
+if _USE_W8A8_QAT:
+    try:
+        from w8a8_core import (
+            fused_qkv_w8a8, fused_out_proj_w8a8,
+            fused_mlp_up_w8a8, fused_mlp_down_w8a8,
+        )
+    except ImportError:
+        _USE_W8A8_QAT = False
 
 if _USE_TRITON_MLP:
     _UP_PROJ_CONFIGS = [
@@ -950,12 +961,18 @@ class CausalSelfAttention(nn.Module):
         vn = F.normalize(v, dim=-1).unsqueeze(-2)    # [B, T, Hkv, 1, D] -- broadcast ready
         proj = (y_g * vn).sum(dim=-1, keepdim=True) * vn
         return (y_g - proj).reshape(B, T, H, D)
-    def forward(self, x: Tensor, qkv_w: Tensor, out_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
+    def forward(self, x: Tensor, qkv_w: Tensor, out_w: Tensor,
+                v_embed: Tensor | None = None, v0: Tensor | None = None,
+                residual: Tensor | None = None, attn_scale: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
         bsz, seqlen, dim = x.shape
         q_dim = self.num_heads * self.head_dim
         kv_dim = self.num_kv_heads * self.head_dim
         # ForgeFuse Phase 1: one GEMM for Q|K|V, then split along last dim.
-        qkv = F.linear(x, qkv_w.to(x.dtype))
+        qkv_w_cast = qkv_w.to(x.dtype)
+        if _USE_W8A8_QAT:
+            qkv = fused_qkv_w8a8(x, qkv_w_cast)
+        else:
+            qkv = F.linear(x, qkv_w_cast)
         q, k, v = qkv.split([q_dim, kv_dim, kv_dim], dim=-1)
         q = q.reshape(bsz, seqlen, self.num_heads, self.head_dim)
         k = k.reshape(bsz, seqlen, self.num_kv_heads, self.head_dim)
@@ -978,7 +995,11 @@ class CausalSelfAttention(nn.Module):
             gate = torch.sigmoid(self.attn_gate(x)).unsqueeze(-1)
             y = y * gate
         y = y.reshape(bsz, seqlen, dim)
-        return F.linear(y, out_w.to(x.dtype)), raw_v
+        out_w_cast = out_w.to(x.dtype)
+        if _USE_W8A8_QAT and residual is not None and attn_scale is not None:
+            # Fused: out = residual + attn_scale * (y @ dequant(out_w).T) via W8A8
+            return fused_out_proj_w8a8(y, out_w_cast, attn_scale, residual), raw_v
+        return F.linear(y, out_w_cast), raw_v
 
 class SmearGate(nn.Module):
     def __init__(self, dim: int):
@@ -1049,6 +1070,9 @@ class MLP(nn.Module):
         up_w_cast = up_w.to(x.dtype)
         down_w_cast = down_w.to(x.dtype)
         if mlp_scale is not None and residual is not None:
+            if _USE_W8A8_QAT:
+                hidden = fused_mlp_up_w8a8(x, up_w_cast)
+                return fused_mlp_down_w8a8(hidden, down_w_cast, mlp_scale, residual)
             hidden = fused_mlp_up_proj(x, up_w_cast)
             return fused_mlp_down_proj(hidden, down_w_cast, mlp_scale, residual)
         # Fallback: original unfused path (used by _HessianBlock or when scale/residual not passed)
@@ -1089,8 +1113,17 @@ class Block(nn.Module):
     def forward(self, x: Tensor, x0: Tensor, qkv_w: Tensor, out_w: Tensor, up_w: Tensor, down_w: Tensor, v_embed: Tensor | None = None, v0: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
         mix = self.resid_mix.to(dtype=x.dtype)
         x_in = mix[0][None, None, :] * x + mix[1][None, None, :] * x0
-        attn_out, raw_v = self.attn(self.attn_norm(x_in) * self.ln_scale_factor, qkv_w, out_w, v_embed=v_embed, v0=v0)
-        x_out = x_in + self.attn_scale.to(dtype=x_in.dtype)[None, None, :] * attn_out
+        attn_scale_cast = self.attn_scale.to(dtype=x_in.dtype)
+        if _USE_W8A8_QAT:
+            # Fused OutProj: attn returns fully-residualed x_out (residual + scale applied inside the kernel)
+            x_out, raw_v = self.attn(
+                self.attn_norm(x_in) * self.ln_scale_factor, qkv_w, out_w,
+                v_embed=v_embed, v0=v0,
+                residual=x_in, attn_scale=attn_scale_cast,
+            )
+        else:
+            attn_out, raw_v = self.attn(self.attn_norm(x_in) * self.ln_scale_factor, qkv_w, out_w, v_embed=v_embed, v0=v0)
+            x_out = x_in + attn_scale_cast[None, None, :] * attn_out
         x_out = self.mlp(self.mlp_norm(x_out) * self.ln_scale_factor, up_w, down_w,
                          mlp_scale=self.mlp_scale.to(dtype=x_out.dtype), residual=x_out)
         if self.dtg_gate is not None:
