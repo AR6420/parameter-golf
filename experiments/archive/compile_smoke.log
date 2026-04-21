@@ -1,0 +1,222 @@
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:22.578000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:22.620000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:43.730000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:43.732000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:43.737000 1296 torch\_inductor\utils.py:1707] [0/0] Not enough SMs to use max_autotune_gemm mode
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] Triton compilation failed: _fused_mlp_up_proj_kernel_0
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] def _fused_mlp_up_proj_kernel(
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     a_ptr, b_ptr, c_ptr, M, N, K,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     BLOCK_M: tl.constexpr = 128, BLOCK_N: tl.constexpr = 128, BLOCK_K: tl.constexpr = 32, GROUP_SIZE_M: tl.constexpr = 8,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] ):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid = tl.program_id(0)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_m = tl.cdiv(M, BLOCK_M)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_n = tl.cdiv(N, BLOCK_N)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_in_group = GROUP_SIZE_M * num_pid_n
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     group_id = pid // num_pid_in_group
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     first_pid_m = group_id * GROUP_SIZE_M
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid_n = (pid % num_pid_in_group) // group_size_m
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_am = (pid_m * BLOCK_M + tl.arange(0, BLOCK_M)) % M
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_bn = (pid_n * BLOCK_N + tl.arange(0, BLOCK_N)) % N
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_k = tl.arange(0, BLOCK_K)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     for k in range(0, tl.cdiv(K, BLOCK_K)):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         a = tl.load(a_ptrs)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         b = tl.load(b_ptrs)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         acc += tl.dot(a, b)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         a_ptrs += BLOCK_K * stride_ak
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         b_ptrs += BLOCK_K * stride_bk
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     acc = tl.where(acc > 0, acc, acc * 0.5)  # LeakyReLU(0.5)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     acc = acc * acc                           # square
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     c = acc.to(tl.bfloat16)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_cm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_cn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     tl.store(c_ptrs, c, mask=c_mask)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] metadata: {'signature': {'a_ptr': '*bf16', 'b_ptr': '*bf16', 'c_ptr': '*bf16', 'M': 'i32', 'N': 'i32', 'K': 'i32', 'stride_am': 'i32', 'stride_ak': 'constexpr', 'stride_bk': 'constexpr', 'stride_bn': 'i32', 'stride_cm': 'i32', 'stride_cn': 'constexpr', 'BLOCK_M': 'constexpr', 'BLOCK_N': 'constexpr', 'BLOCK_K': 'constexpr', 'GROUP_SIZE_M': 'constexpr'}, 'device': 0, 'constants': {'stride_ak': 1, 'stride_bk': 1, 'stride_cn': 1}, 'configs': [{(0,): [['tt.divisibility', 16]], (1,): [['tt.divisibility', 16]], (2,): [['tt.divisibility', 16]], (3,): [['tt.divisibility', 16]], (4,): [['tt.divisibility', 16]], (5,): [['tt.divisibility', 16]], (6,): [['tt.divisibility', 16]], (9,): [['tt.divisibility', 16]], (10,): [['tt.divisibility', 16]]}], 'device_type': 'cuda', 'num_warps': 4, 'num_stages': 3, 'debug': True, 'cc': 120}
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] Traceback (most recent call last):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\triton\language\core.py", line 234, in __sub__
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     return constexpr(self.value - _unwrap_if_constexpr(other))
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]                      ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] The above exception was the direct cause of the following exception:
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] triton.compiler.errors.CompilationError: at 10:17:
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] def cdiv(x, div):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     """
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     Computes the ceiling division of :code:`x` by :code:`div`
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     :param x: the input number
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     :type x: Block
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     :param div: the divisor
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     :type div: Block
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     """
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     return (x + (div - 1)) // div
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]                  ^
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] unsupported operand type(s) for -: 'NoneType' and 'int'
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] The above exception was the direct cause of the following exception:
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] 
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] Traceback (most recent call last):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_inductor\runtime\triton_heuristics.py", line 891, in _precompile_config
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     binary = triton.compile(*compile_args, **compile_kwargs)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\triton\compiler\compiler.py", line 304, in compile
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     module = src.make_ir(target, options, codegen_fns, module_map, context)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\triton\compiler\compiler.py", line 80, in make_ir
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]                        module_map=module_map)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] triton.compiler.errors.CompilationError: at 7:16:
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] def _fused_mlp_up_proj_kernel(
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     a_ptr, b_ptr, c_ptr, M, N, K,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     BLOCK_M: tl.constexpr = 128, BLOCK_N: tl.constexpr = 128, BLOCK_K: tl.constexpr = 32, GROUP_SIZE_M: tl.constexpr = 8,
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] ):
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid = tl.program_id(0)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_m = tl.cdiv(M, BLOCK_M)
+E0420 22:53:44.815000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]                 ^
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.019000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.040000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.246000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Encountered an exception in identify_accessed_tensors, assuming every input is mutated
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] Traceback (most recent call last):
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 1111, in identify_accessed_tensors
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ttir_module, ordered_arg_names = generate_ttir(
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]                                      ~~~~~~~~~~~~~^
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         kernel, kwargs, tma_descriptor_metadata
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ^
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]   File "C:\Users\adars\AppData\Roaming\Python\Python314\site-packages\torch\_higher_order_ops\triton_kernel_wrap.py", line 293, in generate_ttir
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     raise ValueError(
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     ...<2 lines>...
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0]     )
+W0420 22:53:45.248000 1296 torch\_higher_order_ops\triton_kernel_wrap.py:1151] [0/0] ValueError: Incorrect number of arguments passed to kernel: passed ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn'], expected ['a_ptr', 'b_ptr', 'c_ptr', 'scale_ptr', 'res_ptr', 'M', 'N', 'K', 'stride_am', 'stride_ak', 'stride_bk', 'stride_bn', 'stride_cm', 'stride_cn', 'stride_rm', 'stride_rn', 'BLOCK_M', 'BLOCK_N', 'BLOCK_K', 'GROUP_SIZE_M'].
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] Triton compilation failed: _fused_mlp_down_proj_kernel_0
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] def _fused_mlp_down_proj_kernel(
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     a_ptr, b_ptr, c_ptr, scale_ptr, res_ptr, M, N, K,
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn, stride_rm, stride_rn,
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     BLOCK_M: tl.constexpr = 128, BLOCK_N: tl.constexpr = 64, BLOCK_K: tl.constexpr = 64, GROUP_SIZE_M: tl.constexpr = 8,
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0] ):
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid = tl.program_id(0)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_m = tl.cdiv(M, BLOCK_M)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_n = tl.cdiv(N, BLOCK_N)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     num_pid_in_group = GROUP_SIZE_M * num_pid_n
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     group_id = pid // num_pid_in_group
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     first_pid_m = group_id * GROUP_SIZE_M
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     pid_n = (pid % num_pid_in_group) // group_size_m
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_am = (pid_m * BLOCK_M + tl.arange(0, BLOCK_M)) % M
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_bn = (pid_n * BLOCK_N + tl.arange(0, BLOCK_N)) % N
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_k = tl.arange(0, BLOCK_K)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     for k in range(0, tl.cdiv(K, BLOCK_K)):
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         a = tl.load(a_ptrs)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         b = tl.load(b_ptrs)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         acc += tl.dot(a, b)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         a_ptrs += BLOCK_K * stride_ak
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]         b_ptrs += BLOCK_K * stride_bk
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_cm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     offs_cn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\triton_heuristics.py:893] [0/0]     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
+E0420 22:53:45.780000 1296 torch\_inductor\runtime\trito

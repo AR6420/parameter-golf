@@ -1,0 +1,98 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                 FALLBACK A: QUICK DECISION GUIDE                           ║
+║       Triton GEMM + Epilogue Fusion for MLP Weight Matmuls                 ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+DECISION: REJECT (Don't use Fallback A)
+═══════════════════════════════════════
+
+THE PROPOSAL
+────────────
+Replace cuBLAS GEMM with Triton tl.dot kernel that includes epilogue
+(LeakyReLU + square) inline, to avoid scheduling barriers.
+
+THE PROMISE
+───────────
+"Triton can fuse epilogue operations, saving memory roundtrips"
+
+THE REALITY
+───────────
+                         Time (ms)    vs Baseline
+Baseline (cuBLAS+sep):   0.1876       1.00x
+Triton estimate:        0.1822       0.97x  ← 3% faster on paper
+                                      ├─ Within measurement noise
+                                      └─ High complexity for zero gain
+
+THE VERDICT
+───────────
+┌─ Why not?
+│  • tl.dot is 30% slower than cuBLAS
+│  • Epilogue fusion saves only ~10-30% of that slowdown
+│  • Net result: ~3% improvement (negligible)
+│  • Engineering cost is extremely high
+│  • Single-purpose kernel, not reusable
+│  • High risk of bugs or performance regressions
+│
+└─ Bottom line: Engineering effort >> Payoff
+
+THE NUMBERS
+───────────
+                    Engineering Cost    Performance Gain    ROI
+Triton GEMM:        40-60 hours         +3% (-0.005 ms)   ✗ NEGATIVE
+
+For context: At 86.7 ms/step baseline, 0.005 ms saves 0.00006 s/step.
+You'd need ~200,000 forward passes to save 12 seconds total. Not worth it.
+
+THE ALTERNATIVES (Ranked by ROI)
+─────────────────────────────────
+1. CUTLASS epilogue fusion
+   Cost: Medium (CUTLASS knowledge)
+   Gain: Same speed as cuBLAS + full epilogue control
+   ROI: Positive (if you control kernel stack)
+
+2. PyTorch automatic fusion (likely already happening)
+   Cost: Zero
+   Gain: GEMM + activation already fused by JIT
+   ROI: Positive (free)
+
+3. torch._scaled_mm / torch.addmm
+   Cost: Low
+   Gain: GEMM + scale/add fusion, no custom kernels
+   ROI: Positive (medium effort, decent payoff)
+
+4. Restructure operations (Path C variant)
+   Cost: Very High
+   Gain: Possible memory traffic reduction
+   ROI: Uncertain (high risk)
+
+5. Triton GEMM + epilogue
+   Cost: Very High (custom kernel, autotuning, per-hardware)
+   Gain: Negative (3% slower or neutral at best)
+   ROI: ✗ NEGATIVE (avoid)
+
+YOUR DECISION
+─────────────
+✓ Reject Fallback A (Triton GEMM + epilogue fusion)
+✓ Investigate CUTLASS epilogue fusion instead
+✓ Verify PyTorch's implicit fusion is active
+✓ Consider torch._scaled_mm as lightweight alternative
+
+KEY FILES
+─────────
+• TRITON_GEMM_FEASIBILITY.md      Full technical analysis
+• FALLBACK_A_VERDICT.md            Detailed recommendations
+• BENCHMARK_REPRODUCTION.md        How to verify these results
+• RESEARCH_SUMMARY.txt             Actionable next steps
+
+FINAL ANSWER
+────────────
+"Can we use Triton GEMM + epilogue fusion?"
+
+Technically: Yes
+Practically: No
+Should you: Absolutely not
+
+The 30% GEMM slowdown is not offset by epilogue fusion savings.
+The engineering complexity is unjustified by the negligible performance gain.
+
+Pursue CUTLASS or restructuring instead.

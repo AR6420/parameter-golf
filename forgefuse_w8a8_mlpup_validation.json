@@ -1,0 +1,13 @@
+{
+  "cos_fwd": 0.9999878406524658,
+  "cos_grad_x": 0.9999037981033325,
+  "cos_grad_w": 0.9999043941497803,
+  "cos_grad_w_ste_vs_pure_bf16": 1.0,
+  "grad_w_max_rel_diff_ste": 0.0,
+  "max_abs_diff": 0.03125,
+  "max_rel_err": 12.125,
+  "ms_bf16": 0.26653060913085935,
+  "ms_w8a16_raw": NaN,
+  "ms_w8a8_raw": 0.06651103973388672,
+  "ms_w8a8_autograd": 0.349928955078125
+}

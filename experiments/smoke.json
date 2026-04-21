@@ -1,0 +1,53 @@
+{
+  "label": "smoke",
+  "cfg": {
+    "vocab_size": 1024,
+    "num_layers": 11,
+    "model_dim": 512,
+    "num_heads": 8,
+    "num_kv_heads": 4,
+    "mlp_mult": 3,
+    "tie_embeddings": true,
+    "tied_embed_init_std": 0.02,
+    "logit_softcap": 30.0,
+    "rope_base": 1024.0,
+    "qk_gain_init": 1.0,
+    "rope_dims": 16
+  },
+  "n_params": 26502232,
+  "bpt": 2.406336,
+  "mode": "steps",
+  "lr": 0.003,
+  "seed": 1337,
+  "batch_B": 8,
+  "batch_T": 1024,
+  "losses": [
+    5.915998935699463,
+    5.886128902435303
+  ],
+  "grad_norms": [
+    0.6943158372058305,
+    0.8452751797832503
+  ],
+  "wallclock": [
+    3.3768098000000464,
+    6.465815300000031
+  ],
+  "step_indices": [
+    10,
+    20
+  ],
+  "checkpoints": [
+    {
+      "step": 20,
+      "wallclock": 6.465815300000031,
+      "loss": 5.886128902435303,
+      "val_nll": 5.889821469783783,
+      "val_bpb": 3.5311844340019056
+    }
+  ],
+  "total_steps": 20,
+  "total_wallclock": 7.624705399999584,
+  "step_ms_est": 308.9005499999985,
+  "peak_vram_mb": 5829.33203125
+}

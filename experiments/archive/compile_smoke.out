@@ -1,0 +1,160 @@
+[env] torch 2.12.0.dev20260328+cu128  device cuda  capability (12, 0)
+
+Running 8 compile probes ...
+
+  [FAIL] _FusedMLPUpProj
+         -> InductorError: CompilationError: at 7:16:
+  [FAIL] _FusedMLPDownProj
+         -> InductorError: CompilationError: at 7:16:
+  [FAIL] _FusedQKNormRoPE(has_gain=True)
+         -> TorchRuntimeError: RuntimeError when making fake tensor call
+  [FAIL] _FusedQKNormRoPE(has_gain=False)
+         -> TorchRuntimeError: RuntimeError when making fake tensor call
+  [FAIL] _QKV_W8A8
+         -> InductorError: CompilationError: at 14:23:
+  [FAIL] _OutProj_W8A8
+         -> InductorError: CompilationError: at 15:23:
+  [FAIL] _MLPUp_W8A8
+         -> InductorError: ValueError: @jit functions should be defined in a Python file
+  [FAIL] _MLPDown_W8A8
+         -> InductorError: CompilationError: at 15:23:
+
+=== Summary: 0/8 PASS ===
+
+--- Full errors for failed probes ---
+
+[_FusedMLPUpProj]
+InductorError: CompilationError: at 7:16:
+def _fused_mlp_up_proj_kernel(
+    a_ptr, b_ptr, c_ptr, M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+    BLOCK_M: tl.constexpr = 128, BLOCK_N: tl.constexpr = 128, BLOCK_K: tl.constexpr = 32, GROUP_SIZE_M: tl.constexpr = 8,
+):
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+                ^
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_FusedMLPDownProj]
+InductorError: CompilationError: at 7:16:
+def _fused_mlp_down_proj_kernel(
+    a_ptr, b_ptr, c_ptr, scale_ptr, res_ptr, M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn, stride_rm, stride_rn,
+    BLOCK_M: tl.constexpr = 128, BLOCK_N: tl.constexpr = 64, BLOCK_K: tl.constexpr = 64, GROUP_SIZE_M: tl.constexpr = 8,
+):
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+                ^
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_FusedQKNormRoPE(has_gain=True)]
+TorchRuntimeError: RuntimeError when making fake tensor call
+  Explanation: Dynamo failed to run FX node with fake tensors: call_function <built-in function mul>(*(FakeTensor(..., device='cuda:0', size=(2, 64, 4, 8), dtype=torch.bfloat16,
+               grad_fn=<SliceBackward0>), FakeTensor(..., device='cuda:0', size=(64, 8), dtype=torch.bfloat16)), **{}): got RuntimeError('Attempting to broadcast a dimension of length 64 at -2! Mismatching argument at index 1 had torch.Size([64, 8]); but expected shape should be broadcastable to [2, 64, 4, 8]')
+  Hint: Your code may result in an error when running in eager. Please double check that your code doesn't contain a similar error when actually running eager/uncompiled. You can do this by removing the `torch.compile` call, or by using `torch.compiler.set_stance("force_eager")`. 
+
+  Developer debug context: 
+
+ For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb4315.html
+
+from user code:
+   File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\test_compile_smoke.py", line 90, in call
+    return _FusedQKNormRoPE.apply(x, cos, sin, gain, rope_dims, True)
+  File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\train_gpt.py", line 334, in backward
+    out = _pytorch_qk_norm_rope(x_det, cos, sin, gain, ctx.rope_dims, ctx.has_gain)
+  File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\train_gpt.py", line 316, in _pytorch_qk_norm_rope
+    x_rope = torch.cat((x1 * cos + x2 * sin, x1 * (-sin) + x2 * cos), dim=-1)
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_FusedQKNormRoPE(has_gain=False)]
+TorchRuntimeError: RuntimeError when making fake tensor call
+  Explanation: Dynamo failed to run FX node with fake tensors: call_function <built-in function mul>(*(FakeTensor(..., device='cuda:0', size=(2, 64, 4, 8), dtype=torch.bfloat16,
+               grad_fn=<SliceBackward0>), FakeTensor(..., device='cuda:0', size=(64, 8), dtype=torch.bfloat16)), **{}): got RuntimeError('Attempting to broadcast a dimension of length 64 at -2! Mismatching argument at index 1 had torch.Size([64, 8]); but expected shape should be broadcastable to [2, 64, 4, 8]')
+  Hint: Your code may result in an error when running in eager. Please double check that your code doesn't contain a similar error when actually running eager/uncompiled. You can do this by removing the `torch.compile` call, or by using `torch.compiler.set_stance("force_eager")`. 
+
+  Developer debug context: 
+
+ For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb4315.html
+
+from user code:
+   File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\test_compile_smoke.py", line 102, in call
+    return _FusedQKNormRoPE.apply(x, cos, sin, x, rope_dims, False)
+  File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\train_gpt.py", line 334, in backward
+    out = _pytorch_qk_norm_rope(x_det, cos, sin, gain, ctx.rope_dims, ctx.has_gain)
+  File "C:\Users\adars\Downloads\parameter-golf-megakernel\parameter-golf\train_gpt.py", line 316, in _pytorch_qk_norm_rope
+    x_rope = torch.cat((x1 * cos + x2 * sin, x1 * (-sin) + x2 * cos), dim=-1)
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_QKV_W8A8]
+InductorError: CompilationError: at 14:23:
+    M, N, K,
+    stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+    BLOCK_M: tl.constexpr = 128,
+    BLOCK_N: tl.constexpr = 128,
+    BLOCK_K: tl.constexpr = 64,
+    GROUP_SIZE_M: tl.constexpr = 8,
+):
+    """out[m, n] = x_scale[m] * w_scale[n] * sum_k( x_int8[m,k] * w_int8[n,k] )"""
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n
+                       ^
+AttributeError("'NoneType' object has no attribute 'type'")
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_OutProj_W8A8]
+InductorError: CompilationError: at 15:23:
+    stride_am, stride_ak, stride_bk, stride_bn,
+    stride_rm, stride_rn, stride_cm, stride_cn,
+    BLOCK_M: tl.constexpr = 128,
+    BLOCK_N: tl.constexpr = 128,
+    BLOCK_K: tl.constexpr = 64,
+    GROUP_SIZE_M: tl.constexpr = 8,
+):
+    """out = residual + attn_scale[None, :] * (x_scale[m] * w_scale[n] * int8_gemm)"""
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n
+                       ^
+AttributeError("'NoneType' object has no attribute 'type'")
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_MLPUp_W8A8]
+InductorError: ValueError: @jit functions should be defined in a Python file
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+[_MLPDown_W8A8]
+InductorError: CompilationError: at 15:23:
+    stride_am, stride_ak, stride_bk, stride_bn,
+    stride_rm, stride_rn, stride_cm, stride_cn,
+    BLOCK_M: tl.constexpr = 128,
+    BLOCK_N: tl.constexpr = 64,
+    BLOCK_K: tl.constexpr = 64,
+    GROUP_SIZE_M: tl.constexpr = 8,
+):
+    """out = residual + mlp_scale[None, :] * (x_scale[m] * w_scale[n] * int8_gemm)"""
+    pid = tl.program_id(0)
+    num_pid_m = tl.cdiv(M, BLOCK_M)
+    num_pid_n = tl.cdiv(N, BLOCK_N)
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n
+                       ^
+AttributeError("'NoneType' object has no attribute 'type'")
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
