@@ -17,31 +17,22 @@ Two modes:
   --mode steps   --num-steps 500       (Experiment A, equal steps)
   --mode seconds --seconds 600         (Experiment B, equal wall-clock)
 """
-import os, sys, types, inspect, argparse, json, math, time, gc
+import os, sys, inspect, argparse, json, math, time, gc
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['CC'] = r'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\bin\Hostx64\x64\cl.exe'
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-mock = types.ModuleType('flash_attn_interface')
-def _sdpa(q, k, v, causal=False, **kw):
-    q, k, v = q.transpose(1,2).contiguous(), k.transpose(1,2).contiguous(), v.transpose(1,2).contiguous()
-    H, Hkv = q.shape[1], k.shape[1]
-    if H != Hkv:
-        k = k.repeat_interleave(H // Hkv, dim=1)
-        v = v.repeat_interleave(H // Hkv, dim=1)
-    with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
-        return F.scaled_dot_product_attention(q, k, v, is_causal=causal).transpose(1, 2)
-mock.flash_attn_func = _sdpa
-sys.modules['flash_attn_interface'] = mock
-
 import train_gpt
 
+# pr-1493 starter-kit defaults (see docs/research/pr_1493_architecture_audit.md §2).
+# inspect.signature in build_model drops any keys the target branch's GPT doesn't accept,
+# so this dict is safe to keep superset-of-known-args without per-branch editing.
 FULL_CFG = dict(
-    vocab_size=1024, num_layers=11, model_dim=512, num_heads=8, num_kv_heads=4,
-    mlp_mult=3, tie_embeddings=True, tied_embed_init_std=0.02,
-    logit_softcap=30.0, rope_base=1024.0, qk_gain_init=1.0, rope_dims=16,
+    vocab_size=1024, num_layers=9, model_dim=512, num_heads=8, num_kv_heads=4,
+    mlp_mult=2, tie_embeddings=True, tied_embed_init_std=0.005,
+    logit_softcap=30.0, rope_base=10000.0, qk_gain_init=1.5,
 )
 SEED = 1337
 B, T = 8, 1024
@@ -50,11 +41,20 @@ DATA_TRAIN = './data/datasets/fineweb10B_sp1024/fineweb_train_000000.bin'
 DATA_VAL = './data/datasets/fineweb10B_sp1024/fineweb_val_000000.bin'
 TOKENIZER = './data/tokenizers/fineweb_1024_bpe.model'
 
+SHARD_MAGIC = 20240520
+SHARD_VERSION = 1
+SHARD_HEADER_INT32S = 256  # = 1024 bytes. pr-1493 format (see load_data_shard in train_gpt.py).
+
 
 def load_shard(path):
-    data = np.fromfile(path, dtype=np.uint16)
-    # fineweb .bin header: 256 uint16 at the start, tokens follow
-    return torch.from_numpy(data[256:].astype(np.int32))
+    header = np.fromfile(path, dtype='<i4', count=SHARD_HEADER_INT32S)
+    if header.size != SHARD_HEADER_INT32S or int(header[0]) != SHARD_MAGIC or int(header[1]) != SHARD_VERSION:
+        raise ValueError(f"Unexpected shard header for {path}")
+    num_tokens = int(header[2])
+    tokens = np.fromfile(path, dtype='<u2', count=num_tokens, offset=SHARD_HEADER_INT32S * 4)
+    if tokens.size != num_tokens:
+        raise ValueError(f"Short read for {path}")
+    return torch.from_numpy(tokens.astype(np.int32))
 
 
 def compute_bytes_per_token(tokens):
@@ -74,12 +74,7 @@ def build_model(cfg):
                and p.default is inspect.Parameter.empty and p.name not in kw]
     if missing:
         raise RuntimeError(f"GPT __init__ missing: {missing}")
-    m = train_gpt.GPT(**kw).cuda()
-    for name in ('qkv_bank', 'out_bank', 'qo_bank', 'kv_bank', 'mlp_up_bank', 'mlp_down_bank'):
-        p = getattr(m, name, None)
-        if p is not None:
-            p.data = p.data.float()
-    return m, kw
+    return train_gpt.GPT(**kw).cuda(), kw
 
 
 def sample_batch(tokens, B, T, rng):
@@ -114,8 +109,8 @@ def main():
     ap.add_argument('--mode', choices=['steps', 'seconds'], required=True)
     ap.add_argument('--num-steps', type=int, default=500)
     ap.add_argument('--seconds', type=float, default=600.0)
-    ap.add_argument('--num-layers', type=int, default=11)
-    ap.add_argument('--mlp-mult', type=int, default=3)
+    ap.add_argument('--num-layers', type=int, default=9)
+    ap.add_argument('--mlp-mult', type=int, default=2)
     ap.add_argument('--checkpoint-steps', default='100,250,500')
     ap.add_argument('--checkpoint-seconds', default='120,300,600')
     ap.add_argument('--log-every', type=int, default=10)
