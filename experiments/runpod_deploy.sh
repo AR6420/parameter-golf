@@ -1,7 +1,10 @@
 #!/bin/bash
 # RunPod 8xH100-SXM deployment for forgefuse-phase3a
 # Target: full-budget training run + final BPB measurement on native train_gpt.py
-set -euxo pipefail
+# NOTE: set -eu (no pipefail, no -x) because `nvidia-smi | head -20` triggers
+# SIGPIPE on nvidia-smi -> pipefail aborts the whole script. Trace off for
+# quiet logs.
+set -eu
 
 # ── Config ────────────────────────────────────────────────────────────────
 BRANCH="forgefuse-phase3a"
@@ -9,10 +12,15 @@ REPO="https://github.com/AR6420/parameter-golf.git"
 RUN_DIR="/workspace/forgefuse-run"
 TRAIN_SHARDS=${TRAIN_SHARDS:-10}
 
-# ── Clone ─────────────────────────────────────────────────────────────────
+# ── Clone (only if not already present; lets us iterate without re-downloading) ──
 cd /workspace
-rm -rf "$RUN_DIR"
-git clone -b "$BRANCH" "$REPO" "$RUN_DIR"
+if [ ! -d "$RUN_DIR/.git" ] || [ -n "${FORCE_CLONE:-}" ]; then
+    rm -rf "$RUN_DIR"
+    git clone -b "$BRANCH" "$REPO" "$RUN_DIR"
+else
+    echo "Repo already present at $RUN_DIR — pulling latest"
+    (cd "$RUN_DIR" && git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH")
+fi
 cd "$RUN_DIR"
 
 # Verify correct commit
@@ -50,6 +58,10 @@ ls -la data/datasets/fineweb10B_sp1024/ | head -12
 # so the run follows the record-like protocol (self-terminates at 600s or iters).
 # VAL_MAX_BATCHES=0 disables our local dev subsample — full val pass on H100.
 export VAL_MAX_BATCHES=0
+# W8A8 branch has backward ops (requires_grad_) incompatible with fullgraph
+# compile. Keeping eager; FA3 still active.
+export TORCHDYNAMO_DISABLE=${TORCHDYNAMO_DISABLE:-1}
+export TORCH_COMPILE_DISABLE=${TORCH_COMPILE_DISABLE:-1}
 export SEED=${SEED:-1337}
 export RUN_ID="h100_phase3a_fullrun_$(date +%Y%m%d_%H%M%S)"
 
