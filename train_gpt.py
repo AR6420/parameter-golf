@@ -625,8 +625,9 @@ class MLP(nn.Module):
         self.proj._zero_init = True
 
     def forward(self, x: Tensor) -> Tensor:
-        x = torch.relu(self.fc(x))
-        return self.proj(x.square())
+        from fused_kernels import fused_mlp_up
+        x = fused_mlp_up(x, self.fc.weight)
+        return self.proj(x)
 
 
 class Block(nn.Module):
