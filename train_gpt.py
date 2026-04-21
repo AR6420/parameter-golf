@@ -572,9 +572,19 @@ class CausalSelfAttention(nn.Module):
         if self.head_dim % 2 != 0:
             raise ValueError("head_dim must be even for RoPE")
         kv_dim = self.num_kv_heads * self.head_dim
-        self.c_q = CastedLinear(dim, dim, bias=False)
-        self.c_k = CastedLinear(dim, kv_dim, bias=False)
-        self.c_v = CastedLinear(dim, kv_dim, bias=False)
+        # Fused QKV projection. Temp-init + cat preserves the RNG consumption
+        # order of three separate CastedLinears so initial weights are bit-exact
+        # to the pre-fusion baseline.
+        _tmp_q = CastedLinear(dim, dim, bias=False)
+        _tmp_k = CastedLinear(dim, kv_dim, bias=False)
+        _tmp_v = CastedLinear(dim, kv_dim, bias=False)
+        self.c_qkv = CastedLinear(dim, dim + 2 * kv_dim, bias=False)
+        with torch.no_grad():
+            self.c_qkv.weight.copy_(torch.cat([_tmp_q.weight, _tmp_k.weight, _tmp_v.weight], dim=0))
+        del _tmp_q, _tmp_k, _tmp_v
+        self._q_dim = dim
+        self._k_dim = kv_dim
+        self._v_dim = kv_dim
         self.proj = CastedLinear(dim, dim, bias=False)
         self.proj._zero_init = True
         self.q_gain = nn.Parameter(torch.full((num_heads,), qk_gain_init, dtype=torch.float32))
@@ -582,9 +592,11 @@ class CausalSelfAttention(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         bsz, seqlen, dim = x.shape
-        q = self.c_q(x).reshape(bsz, seqlen, self.num_heads, self.head_dim).transpose(1, 2)
-        k = self.c_k(x).reshape(bsz, seqlen, self.num_kv_heads, self.head_dim).transpose(1, 2)
-        v = self.c_v(x).reshape(bsz, seqlen, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        qkv = self.c_qkv(x)
+        q, k, v = qkv.split([self._q_dim, self._k_dim, self._v_dim], dim=-1)
+        q = q.reshape(bsz, seqlen, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.reshape(bsz, seqlen, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = v.reshape(bsz, seqlen, self.num_kv_heads, self.head_dim).transpose(1, 2)
         q = F.rms_norm(q, (q.size(-1),))
         k = F.rms_norm(k, (k.size(-1),))
         cos, sin = self.rotary(seqlen, x.device, q.dtype)
