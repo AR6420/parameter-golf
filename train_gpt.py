@@ -1402,7 +1402,19 @@ def eval_val_sliding(
     token_count = torch.zeros((), device=device, dtype=torch.float64)
     byte_count = torch.zeros((), device=device, dtype=torch.float64)
     base_model.eval()
-    compiled_logits = torch.compile(base_model.forward_logits, dynamic=False, fullgraph=True) if _HAS_FLASH_ATTN_3 else base_model.forward_logits
+    if _HAS_FLASH_ATTN_3:
+        try:
+            compiled_logits = torch.compile(base_model.forward_logits, dynamic=False, fullgraph=True)
+            print("[compile] logits -> torch.compile succeeded (fullgraph=True)", flush=True)
+            _compile_mode_logits = "compiled_fullgraph"
+        except Exception as _ce:
+            print(f"[compile] logits -> torch.compile FAILED, falling back to eager. "
+                  f"Error: {type(_ce).__name__}: {_ce}", flush=True)
+            compiled_logits = base_model.forward_logits
+            _compile_mode_logits = "eager_fallback"
+    else:
+        compiled_logits = base_model.forward_logits
+        _compile_mode_logits = "eager_no_fa3"
     with torch.inference_mode():
         for bi in range(0, len(my_windows), batch_seqs):
             batch_ws = my_windows[bi:bi + batch_seqs]
@@ -2026,11 +2038,23 @@ def main() -> None:
     # No DDP -- Parallel Muon handles bank grad communication via reduce-scatter,
     # and non-bank grads are manually all-reduced before Adam steps.
     if _HAS_FLASH_ATTN_3:
-        compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
-        model = compiled_model
+        try:
+            compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
+            model = compiled_model
+            print("[compile] train_model -> torch.compile succeeded (fullgraph=True)", flush=True)
+            _compile_mode_train_model = "compiled_fullgraph"
+        except Exception as _ce:
+            print(f"[compile] train_model -> torch.compile FAILED, falling back to eager. "
+                  f"Error: {type(_ce).__name__}: {_ce}", flush=True)
+            model = base_model
+            _compile_mode_train_model = "eager_fallback"
     else:
         # Skip compile when using SDPA fallback (not compatible with fullgraph=True)
         model = base_model
+        _compile_mode_train_model = "eager_no_fa3"
+    # Summary of compile modes known at startup (logits/eval determined later)
+    print(f"[compile] Startup compile mode: train_model={_compile_mode_train_model} "
+          f"(logits/eval_model compile deferred until used)", flush=True)
 
     # Optimizer split:
     # - 4 parameter banks -> Muon (batched Newton-Schulz)
@@ -2452,7 +2476,19 @@ def main() -> None:
             m.float()
     restore_low_dim_params_to_fp32(eval_model)
     eval_model.load_state_dict(deq_state, strict=True)
-    compiled_eval = torch.compile(eval_model, dynamic=False, fullgraph=True) if _HAS_FLASH_ATTN_3 else eval_model
+    if _HAS_FLASH_ATTN_3:
+        try:
+            compiled_eval = torch.compile(eval_model, dynamic=False, fullgraph=True)
+            print("[compile] eval_model -> torch.compile succeeded (fullgraph=True)", flush=True)
+            _compile_mode_eval_model = "compiled_fullgraph"
+        except Exception as _ce:
+            print(f"[compile] eval_model -> torch.compile FAILED, falling back to eager. "
+                  f"Error: {type(_ce).__name__}: {_ce}", flush=True)
+            compiled_eval = eval_model
+            _compile_mode_eval_model = "eager_fallback"
+    else:
+        compiled_eval = eval_model
+        _compile_mode_eval_model = "eager_no_fa3"
     torch.cuda.synchronize()
     t_qeval = time.perf_counter()
     q_val_loss, q_val_bpb = eval_val(

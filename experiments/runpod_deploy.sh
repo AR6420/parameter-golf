@@ -56,6 +56,39 @@ export RUN_ID="h100_phase3a_fullrun_$(date +%Y%m%d_%H%M%S)"
 mkdir -p logs
 LOG_FILE="logs/${RUN_ID}.console.log"
 
+# ── 5-step sanity probe ───────────────────────────────────────────────────
+# Catches catastrophic setup failures (bad imports, device mismatches, NaN at
+# init, fullgraph compile rejection without fallback) in ~90 s before we
+# commit to the 10-min training run. Cheap insurance.
+echo ""
+echo "=========================================="
+echo "5-STEP SANITY PROBE (catches setup issues)"
+echo "=========================================="
+PROBE_LOG="logs/sanity_probe_$(date +%Y%m%d_%H%M%S).log"
+NUM_ITERATIONS=5 ITERATIONS=5 VAL_LOSS_EVERY=5 SEED=1337 VAL_MAX_BATCHES=50 \
+    RUN_ID="sanity_probe_$(date +%Y%m%d_%H%M%S)" \
+    torchrun --standalone --nproc_per_node=8 train_gpt.py 2>&1 | tee "$PROBE_LOG" || true
+
+if grep -qE "NaN|Traceback|RuntimeError|AcceleratorError|out of memory" "$PROBE_LOG"; then
+    echo "SANITY PROBE FAILED — error detected. Investigate before full run."
+    grep -E "NaN|Traceback|RuntimeError|AcceleratorError|out of memory" "$PROBE_LOG" | head -20
+    exit 1
+fi
+
+if ! grep -qE "^step:5/5" "$PROBE_LOG"; then
+    echo "SANITY PROBE did not reach step 5 — aborting."
+    tail -40 "$PROBE_LOG"
+    exit 1
+fi
+
+# Emit the compile-mode summary from the probe so we know what we're running
+echo ""
+echo "--- COMPILE MODES (from sanity probe) ---"
+grep -E "\[compile\]" "$PROBE_LOG" | head -10
+echo ""
+echo "SANITY PROBE passed. Starting full run."
+
+# ── Full run ──────────────────────────────────────────────────────────────
 echo "==========================================" | tee -a "$LOG_FILE"
 echo "Launching torchrun nproc_per_node=8"      | tee -a "$LOG_FILE"
 echo "Branch: $BRANCH  RUN_ID: $RUN_ID"         | tee -a "$LOG_FILE"
