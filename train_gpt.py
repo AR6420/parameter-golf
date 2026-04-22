@@ -615,6 +615,9 @@ class CausalSelfAttention(nn.Module):
         return self.proj(y)
 
 
+_W8A8_ENABLED = bool(int(os.environ.get("W8A8", "0")))
+
+
 class MLP(nn.Module):
     # relu^2 MLP from the original modded-nanogpt setup
     def __init__(self, dim: int, mlp_mult: int):
@@ -625,6 +628,10 @@ class MLP(nn.Module):
         self.proj._zero_init = True
 
     def forward(self, x: Tensor) -> Tensor:
+        if _W8A8_ENABLED:
+            from fused_kernels import fused_mlp_up_w8a8_reference, w8a8_linear_reference
+            h = fused_mlp_up_w8a8_reference(x, self.fc.weight)
+            return w8a8_linear_reference(h, self.proj.weight)
         from fused_kernels import fused_mlp_up
         x = fused_mlp_up(x, self.fc.weight)
         return self.proj(x)

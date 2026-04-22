@@ -219,3 +219,72 @@ def fused_mlp_up(x: Tensor, w: Tensor) -> Tensor:
         x = x.to(torch.bfloat16)
     y_sq, _y = _fused_mlp_up_relu2_impl(x, w)
     return y_sq
+
+
+# ============================================================================
+# W8A8 REFERENCE IMPLEMENTATION (pure PyTorch)
+# ============================================================================
+# Path M3: fp32 master weights preserved (CastedLinear-native); per-forward
+# fake-quant to INT8 for both weights and activations; STE backward.
+#
+# This is the mathematical equivalent of what a Triton INT8-tensor-core GEMM
+# would produce (X_int8 @ W_int8^T -> int32 -> scale_x * scale_w * int32).
+# We run the reference FIRST to verify training signal under pr-1493's Muon +
+# AdamW + qk_gain_init=1.5 dynamics BEFORE investing in a Triton kernel.
+#
+# Why no torch.autograd.Function: phase3a's W8A8 used autograd.Function with
+# requires_grad_() calls in backward which broke torch.compile(fullgraph=True).
+# This reference uses pure PyTorch op composition — the `+ detach()` STE trick
+# composes cleanly with dynamo tracing.
+#
+# See docs/research/compile_compatibility_rules.md Rule 1–3.
+
+import torch.nn.functional as F  # noqa: E402  (late import, tied to W8A8 section)
+
+
+def _quantize_to_int8_per_row(t: Tensor, eps: float = 1e-8) -> Tensor:
+    """Symmetric per-last-dim-row INT8 fake-quant, returns fp32 dequant value.
+
+    t: fp32 tensor of any shape [*, K]
+    Returns round(t/scale) * scale clipped to [-127, 127]*scale, same shape.
+    """
+    amax = t.abs().amax(dim=-1, keepdim=True).clamp(min=eps)
+    scale = amax / 127.0
+    t_int = torch.round(t / scale).clamp(-127.0, 127.0)
+    return t_int * scale
+
+
+def _ste_fake_quant(t: Tensor) -> Tensor:
+    """Straight-through estimator: forward is fake-quant, backward is identity."""
+    t_q = _quantize_to_int8_per_row(t)
+    return t + (t_q - t).detach()
+
+
+def w8a8_linear_reference(x: Tensor, w: Tensor) -> Tensor:
+    """Reference W8A8 linear: fake-quantizes x and w, fp32 matmul, STE backward.
+
+    Equivalent to F.linear(fake_quant(x), fake_quant(w)) with gradients flowing
+    through x and w as if quantization were identity.
+
+    Args:
+        x: [..., K] activations (any fp dtype; promoted to fp32 for quant math)
+        w: [N, K] weight (any fp dtype; promoted to fp32 for quant math)
+    Returns:
+        [..., N] in x.dtype.
+    """
+    target_dtype = x.dtype
+    x_q = _ste_fake_quant(x.float())
+    w_q = _ste_fake_quant(w.float())
+    # Cast to activation dtype for the matmul, matching CastedLinear/autocast.
+    return F.linear(x_q.to(target_dtype), w_q.to(target_dtype))
+
+
+def fused_mlp_up_w8a8_reference(x: Tensor, w: Tensor) -> Tensor:
+    """Reference W8A8 variant of fused_mlp_up: W8A8(fc) + relu^2.
+
+    Replaces fused_mlp_up when the W8A8 toggle is active. Does NOT quantize
+    the relu^2 output — that's the next linear's input, and the next linear
+    (proj) handles its own activation quant.
+    """
+    h = w8a8_linear_reference(x, w)
+    return torch.relu(h).square()
