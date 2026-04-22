@@ -288,3 +288,213 @@ def fused_mlp_up_w8a8_reference(x: Tensor, w: Tensor) -> Tensor:
     """
     h = w8a8_linear_reference(x, w)
     return torch.relu(h).square()
+
+
+# ============================================================================
+# W8A8 TRITON KERNEL (Phase 4B) — INT8 tensor cores
+# ============================================================================
+# Replaces Phase 4A's fp32 reference with an actual INT8 GEMM. Uses the same
+# triton_op + register_fake + register_autograd template as Kernel 2 (K2),
+# proven compile-safe under fullgraph=True.
+#
+# Design (approved in Step 2 design report):
+#   - Scales pre-computed in PyTorch ops inside the triton_op wrapper
+#     (compiles cleanly under dynamo; verified via pre-check)
+#   - Triton kernel consumes int8 + fp32 scales, returns bf16
+#   - INT8 GEMM via tl.dot(int8, int8, out_dtype=int32)
+#   - Dequant rule: int32 -> fp32 FIRST, then apply x_scale * w_scale as
+#     separate multiplies (never precompute the product — underflow risk
+#     when both scales are small, per phase3a W8A8 memory)
+#   - Analytical STE backward: grad_x = grad_out @ q(w), grad_w = grad_out.T @ q(x)
+#     (bf16 matmul for now; Phase 4C candidate if backward becomes bottleneck)
+
+_W8A8_TRITON_CONFIGS = [
+    # BLOCK_K >= 16 for H100/Blackwell INT8 tensor cores.
+    triton.Config({'BLOCK_M':  64, 'BLOCK_N': 128, 'BLOCK_K': 64}, num_warps=4, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N':  64, 'BLOCK_K': 64}, num_warps=4, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 32}, num_warps=4, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 64}, num_warps=4, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128, 'BLOCK_K': 64}, num_warps=8, num_stages=3),
+    triton.Config({'BLOCK_M': 256, 'BLOCK_N': 128, 'BLOCK_K': 32}, num_warps=8, num_stages=3),
+    triton.Config({'BLOCK_M': 256, 'BLOCK_N': 128, 'BLOCK_K': 64}, num_warps=8, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N': 256, 'BLOCK_K': 32}, num_warps=8, num_stages=3),
+    triton.Config({'BLOCK_M': 128, 'BLOCK_N': 256, 'BLOCK_K': 64}, num_warps=8, num_stages=3),
+]
+
+
+@triton.autotune(configs=_W8A8_TRITON_CONFIGS, key=['M', 'N', 'K'])
+@triton.jit
+def _int8_gemm_dequant_kernel(
+    X_ptr, W_ptr, XS_ptr, WS_ptr, OUT_ptr,
+    M, N, K,
+    stride_xm, stride_xk,
+    stride_wn, stride_wk,
+    stride_om, stride_on,
+    BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
+):
+    """INT8 GEMM with per-row dequant.
+
+    Inputs:
+        X  [M, K] int8     (per-row quantized activations)
+        W  [N, K] int8     (per-row quantized weight)
+        XS [M]    fp32     (per-row activation scale)
+        WS [N]    fp32     (per-row weight scale)
+    Output:
+        OUT [M, N] bf16, = (X @ W.T).to(fp32) * XS[:, None] * WS[None, :]
+    """
+    pid_m = tl.program_id(0)
+    pid_n = tl.program_id(1)
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+    offs_k = tl.arange(0, BLOCK_K)
+
+    x_ptrs = X_ptr + offs_m[:, None] * stride_xm + offs_k[None, :] * stride_xk
+    w_ptrs = W_ptr + offs_n[:, None] * stride_wn + offs_k[None, :] * stride_wk
+
+    acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.int32)
+    for k in range(0, tl.cdiv(K, BLOCK_K)):
+        k_rem = K - k * BLOCK_K
+        x_tile = tl.load(
+            x_ptrs, mask=(offs_m[:, None] < M) & (offs_k[None, :] < k_rem), other=0
+        )
+        w_tile = tl.load(
+            w_ptrs, mask=(offs_n[:, None] < N) & (offs_k[None, :] < k_rem), other=0
+        )
+        # INT8 TENSOR CORE MATMUL: x_tile [BLOCK_M, BLOCK_K] int8,
+        # trans(w_tile) [BLOCK_K, BLOCK_N] int8, acc int32
+        acc = tl.dot(x_tile, tl.trans(w_tile), acc, out_dtype=tl.int32)
+        x_ptrs += BLOCK_K * stride_xk
+        w_ptrs += BLOCK_K * stride_wk
+
+    x_scale = tl.load(XS_ptr + offs_m, mask=offs_m < M, other=1.0)
+    w_scale = tl.load(WS_ptr + offs_n, mask=offs_n < N, other=1.0)
+
+    # Dequant: int32 -> fp32 FIRST, then scales as separate multiplies.
+    # Avoid precomputing x_scale * w_scale — when both are small, product
+    # underflows bf16 normals and truncates gradient magnitude.
+    acc_fp32 = acc.to(tl.float32) * x_scale[:, None] * w_scale[None, :]
+    out = acc_fp32.to(tl.bfloat16)
+
+    out_ptrs = OUT_ptr + offs_m[:, None] * stride_om + offs_n[None, :] * stride_on
+    tl.store(out_ptrs, out, mask=(offs_m[:, None] < M) & (offs_n[None, :] < N))
+
+
+# NOTE: we use @torch.library.custom_op here, NOT @triton_op. Reason: Inductor
+# tries to DECOMPOSE triton_op bodies into its own regenerated Triton source
+# inside a temp module. That regeneration path fails for INT8 tl.dot (with
+# out_dtype=int32) — the temp module can't resolve @jit's source file and
+# raises "@jit functions should be defined in a Python file". custom_op is
+# opaque to Inductor (treated as a black-box op), sidestepping the decomposition
+# entirely. Same compile-safety outcome, different layering.
+from torch.library import custom_op  # noqa: E402
+
+
+@custom_op("forgefuse::w8a8_linear_forward", mutates_args=())
+def _w8a8_linear_forward(x: Tensor, w: Tensor) -> Tensor:
+    """Forward: quantize x and w to int8 (PyTorch ops), then INT8 GEMM+dequant (Triton)."""
+    assert x.is_cuda and w.is_cuda
+    assert w.dim() == 2, f"weight must be 2D, got {tuple(w.shape)}"
+    orig_shape = x.shape
+    K = orig_shape[-1]
+    assert w.shape[-1] == K, f"K mismatch: x {K}, w {w.shape[-1]}"
+
+    # Per-row INT8 quantization
+    x_f32 = x.float()
+    x_scale_keepdim = x_f32.abs().amax(dim=-1, keepdim=True).clamp_min(1e-8) / 127.0
+    x_int8_full = (x_f32 / x_scale_keepdim).round().clamp(-127.0, 127.0).to(torch.int8)
+
+    w_scale_keepdim = w.abs().amax(dim=-1, keepdim=True).clamp_min(1e-8) / 127.0
+    w_int8 = (w / w_scale_keepdim).round().clamp(-127.0, 127.0).to(torch.int8)
+
+    x_int8_flat = x_int8_full.reshape(-1, K).contiguous()
+    x_scale_flat = x_scale_keepdim.reshape(-1).contiguous()
+    w_int8_c = w_int8.contiguous()
+    w_scale_c = w_scale_keepdim.squeeze(-1).contiguous()
+
+    M = x_int8_flat.shape[0]
+    N = w_int8_c.shape[0]
+    out_flat = torch.empty((M, N), device=x.device, dtype=torch.bfloat16)
+
+    def grid(meta):
+        return (triton.cdiv(M, meta['BLOCK_M']), triton.cdiv(N, meta['BLOCK_N']))
+
+    # Direct kernel call (not wrap_triton): custom_op is opaque to Inductor,
+    # so we don't need the wrap_triton trace-visibility hook.
+    _int8_gemm_dequant_kernel[grid](
+        x_int8_flat, w_int8_c, x_scale_flat, w_scale_c, out_flat,
+        M, N, K,
+        x_int8_flat.stride(0), x_int8_flat.stride(1),
+        w_int8_c.stride(0), w_int8_c.stride(1),
+        out_flat.stride(0), out_flat.stride(1),
+    )
+    return out_flat.reshape(*orig_shape[:-1], N)
+
+
+@_w8a8_linear_forward.register_fake
+def _w8a8_linear_forward_fake(x, w):
+    out_shape = list(x.shape[:-1]) + [w.shape[0]]
+    return torch.empty(out_shape, device=x.device, dtype=torch.bfloat16)
+
+
+def _w8a8_setup_context(ctx, inputs, output):
+    x, w = inputs
+    ctx.save_for_backward(x, w)
+
+
+def _w8a8_backward(ctx, grad_out):
+    """Analytical STE backward.
+
+    Forward (semantically): out = q(x) @ q(w).T where q = per-row INT8 fake-quant.
+    STE: d q(t) / d t = 1 (identity), so:
+        grad_x = grad_out @ q(w)       [..., N] @ [N, K] -> [..., K]
+        grad_w = grad_out^T @ q(x)     [N, M] @ [M, K] -> [N, K]
+
+    Pure functional: no requires_grad_(), no re-forward. bf16 matmul for speed.
+    """
+    x, w = ctx.saved_tensors
+    with torch.no_grad():
+        x_q_fp32 = _quantize_to_int8_per_row(x.float())
+        w_q_fp32 = _quantize_to_int8_per_row(w.float())
+
+    x_q_bf = x_q_fp32.to(torch.bfloat16)
+    w_q_bf = w_q_fp32.to(torch.bfloat16)
+    go = grad_out if grad_out.dtype == torch.bfloat16 else grad_out.to(torch.bfloat16)
+
+    orig_x_shape = x.shape
+    N = w.shape[0]
+    K = w.shape[1]
+    go_flat = go.reshape(-1, N)
+
+    grad_x_flat = go_flat @ w_q_bf
+    grad_x = grad_x_flat.reshape(orig_x_shape)
+    grad_w = (go_flat.t() @ x_q_bf.reshape(-1, K)).to(torch.float32)
+    return grad_x, grad_w
+
+
+torch.library.register_autograd(
+    "forgefuse::w8a8_linear_forward",
+    _w8a8_backward,
+    setup_context=_w8a8_setup_context,
+)
+
+
+def w8a8_linear_triton(x: Tensor, w: Tensor) -> Tensor:
+    """Triton W8A8 linear (Phase 4B).
+
+    Functionally equivalent to w8a8_linear_reference (Phase 4A) within INT8
+    GEMM noise. Uses tl.dot(int8, int8, out_dtype=int32) for tensor-core
+    throughput on H100 and INT8-capable Blackwell.
+
+    Args:
+        x: [..., K] activations (fp dtype; internally quantized)
+        w: [N, K] fp32 weight (internally quantized)
+    Returns:
+        [..., N] bf16
+    """
+    return _w8a8_linear_forward(x, w)
+
+
+def fused_mlp_up_w8a8_triton(x: Tensor, w: Tensor) -> Tensor:
+    """Triton W8A8 variant of fused_mlp_up: W8A8(fc) + relu^2."""
+    h = w8a8_linear_triton(x, w)
+    return torch.relu(h).square()

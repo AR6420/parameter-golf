@@ -616,6 +616,7 @@ class CausalSelfAttention(nn.Module):
 
 
 _W8A8_ENABLED = bool(int(os.environ.get("W8A8", "0")))
+_W8A8_TRITON_ENABLED = bool(int(os.environ.get("W8A8_TRITON", "0")))
 
 
 class MLP(nn.Module):
@@ -628,6 +629,10 @@ class MLP(nn.Module):
         self.proj._zero_init = True
 
     def forward(self, x: Tensor) -> Tensor:
+        if _W8A8_TRITON_ENABLED:
+            from fused_kernels import fused_mlp_up_w8a8_triton, w8a8_linear_triton
+            h = fused_mlp_up_w8a8_triton(x, self.fc.weight)
+            return w8a8_linear_triton(h, self.proj.weight)
         if _W8A8_ENABLED:
             from fused_kernels import fused_mlp_up_w8a8_reference, w8a8_linear_reference
             h = fused_mlp_up_w8a8_reference(x, self.fc.weight)
